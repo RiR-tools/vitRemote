@@ -1,0 +1,759 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (
+          request.auth.token.email in [
+            'rubaeati9@gmail.com',
+            'islamrubaeat@gmail.com',
+            'islamrubaeat@tgmail.com'
+          ] &&
+          request.auth.token.email_verified == true
+        )
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidCode(code) {
+      return code is string && code.matches('^[0-9]{9}$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function deviceDocData(deviceId) {
+      return get(/databases/$(database)/documents/devices/$(deviceId)).data;
+    }
+
+    function isDeviceOwner(deviceId) {
+      return isSignedIn() && deviceDocData(deviceId).ownerUid == request.auth.uid;
+    }
+
+    function isActiveViewer(deviceId) {
+      return isSignedIn() &&
+        deviceDocData(deviceId).activeViewerUid == request.auth.uid &&
+        deviceDocData(deviceId).lastSessionCode == deviceDocData(deviceId).deviceCode;
+    }
+
+    function chatDocData(chatId) {
+      return get(/databases/$(database)/documents/chats/$(chatId)).data;
+    }
+
+    function isChatParticipant(chatId) {
+      return isSignedIn() && request.auth.uid in chatDocData(chatId).participantUids;
+    }
+
+    function isValidDeviceBinding(data) {
+      return data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
+        data.ownerEmailMasked is string && data.ownerEmailMasked.size() >= 1 && data.ownerEmailMasked.size() <= 120 &&
+        isValidCode(data.deviceCode) &&
+        data.createdAt is timestamp && data.createdAt <= request.time &&
+        data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidDeviceCodeLookup(data) {
+      return data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
+        isValidId(data.deviceId) &&
+        data.model is string && data.model.size() >= 1 && data.model.size() <= 120 &&
+        data.androidVersion is string && data.androidVersion.size() >= 1 && data.androidVersion.size() <= 40 &&
+        data.online is bool &&
+        data.createdAt is timestamp && data.createdAt <= request.time &&
+        data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidDeviceNode(data) {
+      return data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
+        isValidCode(data.deviceCode) &&
+        data.model is string && data.model.size() >= 1 && data.model.size() <= 120 &&
+        data.androidVersion is string && data.androidVersion.size() >= 1 && data.androidVersion.size() <= 40 &&
+        data.sdk is int && data.sdk >= 21 && data.sdk <= 99 &&
+        data.online is bool &&
+        data.cloudEnabled is bool &&
+        data.videoStreaming is bool &&
+        data.screenWidth is int && data.screenWidth >= 0 && data.screenWidth <= 10000 &&
+        data.screenHeight is int && data.screenHeight >= 0 && data.screenHeight <= 10000 &&
+        data.batteryLevel is int && data.batteryLevel >= -1 && data.batteryLevel <= 100 &&
+        data.charging is bool &&
+        data.captureMode is string && data.captureMode.size() <= 120 &&
+        data.viewerActive is bool &&
+        data.viewerQuality is int && data.viewerQuality >= 160 && data.viewerQuality <= 1440 &&
+        (!('deviceAlias' in data) || (data.deviceAlias is string && data.deviceAlias.size() <= 60)) &&
+        (!('batteryTempTenths' in data) || (data.batteryTempTenths is int && data.batteryTempTenths >= -300 && data.batteryTempTenths <= 1200)) &&
+        (!('ramUsedMb' in data) || (data.ramUsedMb is int && data.ramUsedMb >= 0 && data.ramUsedMb <= 1048576)) &&
+        (!('ramTotalMb' in data) || (data.ramTotalMb is int && data.ramTotalMb >= 0 && data.ramTotalMb <= 1048576)) &&
+        (!('storageUsedMb' in data) || (data.storageUsedMb is int && data.storageUsedMb >= 0 && data.storageUsedMb <= 16777216)) &&
+        (!('storageTotalMb' in data) || (data.storageTotalMb is int && data.storageTotalMb >= 0 && data.storageTotalMb <= 16777216)) &&
+        (!('brightness' in data) || (data.brightness is int && data.brightness >= -1 && data.brightness <= 255)) &&
+        (!('torchOn' in data) || data.torchOn is bool) &&
+        (!('ringing' in data) || data.ringing is bool) &&
+        (!('clipboardText' in data) || (data.clipboardText is string && data.clipboardText.size() <= 4000)) &&
+        (!('virtualScreenActive' in data) || data.virtualScreenActive is bool) &&
+        (!('virtualScreenPackage' in data) || (data.virtualScreenPackage is string && data.virtualScreenPackage.size() <= 150)) &&
+        (!('virtualScreenStatus' in data) || (data.virtualScreenStatus is string && data.virtualScreenStatus.size() <= 240)) &&
+        (!('activeViewerUid' in data) || data.activeViewerUid == null || (data.activeViewerUid is string && data.activeViewerUid.size() >= 1 && data.activeViewerUid.size() <= 128)) &&
+        (!('lastSessionCode' in data) || data.lastSessionCode == null || isValidCode(data.lastSessionCode)) &&
+        (!('foregroundPackage' in data) || (data.foregroundPackage is string && data.foregroundPackage.size() <= 150)) &&
+        (!('foregroundLabel' in data) || (data.foregroundLabel is string && data.foregroundLabel.size() <= 100)) &&
+        (!('foregroundChangedAtMs' in data) || (data.foregroundChangedAtMs is int && data.foregroundChangedAtMs >= 0)) &&
+        data.createdAt is timestamp && data.createdAt <= request.time &&
+        data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidLiveFrame(data) {
+      return data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
+        data.seq is int && data.seq >= 0 &&
+        data.width is int && data.width >= 1 && data.width <= 4096 &&
+        data.height is int && data.height >= 1 && data.height <= 4096 &&
+        data.isFullShot is bool &&
+        data.imageBase64 is string && data.imageBase64.size() >= 1 && data.imageBase64.size() <= 850000 &&
+        data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidRemoteCommand(data) {
+      return data.senderUid is string && data.senderUid.size() >= 1 && data.senderUid.size() <= 128 &&
+        data.senderDeviceId is string && data.senderDeviceId.size() >= 1 && data.senderDeviceId.size() <= 64 &&
+        isValidCode(data.pin) &&
+        data.payload is string && data.payload.size() >= 1 && data.payload.size() <= 2000 &&
+        data.status in ['pending', 'done', 'error'] &&
+        (!('errorMessage' in data) || data.errorMessage == null || (data.errorMessage is string && data.errorMessage.size() <= 300)) &&
+        data.createdAt is timestamp && data.createdAt <= request.time &&
+        data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidSavedDevice(data, userId) {
+      return data.userId is string && data.userId == userId &&
+        isValidId(data.targetDeviceId) &&
+        isValidCode(data.deviceCode) &&
+        data.model is string && data.model.size() >= 1 && data.model.size() <= 120 &&
+        data.androidVersion is string && data.androidVersion.size() >= 1 && data.androidVersion.size() <= 40 &&
+        (!('alias' in data) || (data.alias is string && data.alias.size() <= 60)) &&
+        (!('pinned' in data) || data.pinned is bool) &&
+        data.createdAt is timestamp && data.createdAt <= request.time &&
+        data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidChatThread(data) {
+      return data.participantUids is list &&
+        data.participantUids.size() >= 1 &&
+        data.participantUids.size() <= 2 &&
+        isValidId(data.targetDeviceId) &&
+        isValidCode(data.authCode) &&
+        data.initiatedByUid is string && data.initiatedByUid.size() >= 1 && data.initiatedByUid.size() <= 128 &&
+        data.userAUid is string && data.userAUid.size() >= 1 && data.userAUid.size() <= 128 &&
+        isValidId(data.userADeviceId) &&
+        data.userADeviceName is string && data.userADeviceName.size() >= 1 && data.userADeviceName.size() <= 120 &&
+        data.userBUid is string && data.userBUid.size() >= 1 && data.userBUid.size() <= 128 &&
+        isValidId(data.userBDeviceId) &&
+        data.userBDeviceName is string && data.userBDeviceName.size() >= 1 && data.userBDeviceName.size() <= 120 &&
+        data.lastMessageText is string && data.lastMessageText.size() <= 500 &&
+        data.lastMessageType in ['text', 'photo', 'call_audio', 'call_video'] &&
+        data.lastSenderUid is string && data.lastSenderUid.size() <= 128 &&
+        data.lastSenderDeviceName is string && data.lastSenderDeviceName.size() <= 120 &&
+        (!('activeCallId' in data) || data.activeCallId == null || isValidId(data.activeCallId)) &&
+        (!('activeCallType' in data) || data.activeCallType == null || data.activeCallType in ['audio', 'video']) &&
+        (!('activeCallStatus' in data) || data.activeCallStatus == null || data.activeCallStatus in ['ringing', 'active', 'ended', 'declined']) &&
+        (!('activeCallerUid' in data) || data.activeCallerUid == null || (data.activeCallerUid is string && data.activeCallerUid.size() <= 128)) &&
+        (!('activeCallerName' in data) || data.activeCallerName == null || (data.activeCallerName is string && data.activeCallerName.size() <= 120)) &&
+        data.createdAt is timestamp && data.createdAt <= request.time &&
+        data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidChatMessage(data, chatId) {
+      return data.chatId == chatId &&
+        data.senderUid is string && data.senderUid.size() >= 1 && data.senderUid.size() <= 128 &&
+        data.senderDeviceId is string && data.senderDeviceId.size() >= 1 && data.senderDeviceId.size() <= 64 &&
+        data.senderDeviceName is string && data.senderDeviceName.size() >= 1 && data.senderDeviceName.size() <= 120 &&
+        data.type in ['text', 'photo', 'call'] &&
+        data.text is string && data.text.size() <= 2000 &&
+        (!('imageBase64' in data) || data.imageBase64 == null || (data.imageBase64 is string && data.imageBase64.size() <= 850000)) &&
+        (data.type != 'photo' || ('imageBase64' in data && data.imageBase64 is string && data.imageBase64.size() >= 1)) &&
+        data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidCallSession(data, chatId) {
+      return data.chatId == chatId &&
+        data.callerUid is string && data.callerUid.size() >= 1 && data.callerUid.size() <= 128 &&
+        isValidId(data.callerDeviceId) &&
+        data.callerName is string && data.callerName.size() >= 1 && data.callerName.size() <= 120 &&
+        data.calleeUid is string && data.calleeUid.size() >= 1 && data.calleeUid.size() <= 128 &&
+        data.callType in ['audio', 'video'] &&
+        data.status in ['ringing', 'active', 'ended', 'declined'] &&
+        data.createdAt is timestamp && data.createdAt <= request.time &&
+        data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidCallStream(data, participantUid) {
+      return data.senderUid == participantUid &&
+        data.seq is int && data.seq >= 0 &&
+        data.audioBase64 is string && data.audioBase64.size() <= 200000 &&
+        data.videoBase64 is string && data.videoBase64.size() <= 250000 &&
+        data.muted is bool &&
+        data.cameraOn is bool &&
+        data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidUserAccount(data) {
+      return data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+        data.email is string && data.email.size() <= 160 &&
+        (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 120)) &&
+        data.lastDeviceId is string && isValidId(data.lastDeviceId) &&
+        data.lastDeviceCode is string && isValidCode(data.lastDeviceCode) &&
+        (!('deviceModel' in data) || (data.deviceModel is string && data.deviceModel.size() <= 120)) &&
+        (!('androidVersion' in data) || (data.androidVersion is string && data.androidVersion.size() <= 40)) &&
+        (!('appVersion' in data) || (data.appVersion is string && data.appVersion.size() <= 40)) &&
+        data.role in ['user', 'admin'] &&
+        data.blocked is bool &&
+        data.blockReason is string && data.blockReason.size() <= 500 &&
+        (!('blockedBy' in data) || data.blockedBy == null || (data.blockedBy is string && data.blockedBy.size() <= 128)) &&
+        (!('blockedAt' in data) || data.blockedAt == null || (data.blockedAt is timestamp && data.blockedAt <= request.time)) &&
+        data.lastSeenAt is timestamp && data.lastSeenAt <= request.time &&
+        data.createdAt is timestamp && data.createdAt <= request.time &&
+        data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidBlockedDevice(data, deviceId) {
+      return data.deviceId == deviceId &&
+        data.blocked is bool &&
+        data.reason is string && data.reason.size() <= 500 &&
+        (!('blockedBy' in data) || data.blockedBy == null || (data.blockedBy is string && data.blockedBy.size() <= 128)) &&
+        data.createdAt is timestamp && data.createdAt <= request.time &&
+        data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidAppConfig(data) {
+      return data.maintenanceMode is bool &&
+        data.maintenanceNotice is string && data.maintenanceNotice.size() <= 500 &&
+        data.minVersionCode is int && data.minVersionCode >= 1 && data.minVersionCode <= 1000000 &&
+        data.globalNotice is string && data.globalNotice.size() <= 500 &&
+        data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidAdminAuditLog(data) {
+      return data.adminUid is string && data.adminUid == request.auth.uid &&
+        data.adminEmail is string && data.adminEmail.size() >= 3 && data.adminEmail.size() <= 160 &&
+        data.action is string && data.action.size() >= 2 && data.action.size() <= 80 &&
+        data.target is string && data.target.size() >= 1 && data.target.size() <= 160 &&
+        data.details is string && data.details.size() <= 500 &&
+        data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidJsonControl(data) {
+      return data.jsonEnabled is bool &&
+        (!('customRtdbUrl' in data) || (data.customRtdbUrl is string && data.customRtdbUrl.size() <= 300)) &&
+        data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 160 &&
+        data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // Trusted Admin Panel operators
+    match /admins/{adminUid} {
+      allow get: if (isOwner(adminUid) || isAdmin()) && isValidId(adminUid);
+      allow list: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // Admin Security Audit Logs
+    match /adminLogs/{logId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidId(logId) &&
+        incoming().keys().hasAll(['adminUid', 'adminEmail', 'action', 'target', 'details', 'createdAt']) &&
+        incoming().keys().hasOnly(['adminUid', 'adminEmail', 'action', 'target', 'details', 'createdAt']) &&
+        isValidAdminAuditLog(incoming());
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(logId);
+    }
+
+    // vitjsons JSON Guard & Viewer Master Switch (admin-only control)
+    match /jsonControl/{guardId} {
+      allow get: if isAdmin() && isValidId(guardId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidId(guardId) &&
+        incoming().keys().hasAll(['jsonEnabled', 'updatedBy', 'updatedAt']) &&
+        incoming().keys().hasOnly(['jsonEnabled', 'customRtdbUrl', 'updatedBy', 'updatedAt']) &&
+        isValidJsonControl(incoming());
+      allow update: if isAdmin() &&
+        isValidId(guardId) &&
+        isValidJsonControl(incoming()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['jsonEnabled', 'customRtdbUrl', 'updatedBy', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    // User Directory & Admin-enforced remote block status
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+
+      allow create: if (isOwner(userId) || isAdmin()) &&
+        isValidId(userId) &&
+        incoming().keys().hasAll([
+          'uid', 'email', 'lastDeviceId', 'lastDeviceCode', 'role', 'blocked', 'blockReason',
+          'lastSeenAt', 'createdAt', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'uid', 'email', 'displayName', 'lastDeviceId', 'lastDeviceCode',
+          'deviceModel', 'androidVersion', 'appVersion', 'role', 'blocked', 'blockReason',
+          'lastSeenAt', 'createdAt', 'updatedAt'
+        ]) &&
+        incoming().uid == userId &&
+        (isAdmin() || (incoming().role == 'user' && incoming().blocked == false && incoming().blockReason == '')) &&
+        isValidUserAccount(incoming());
+
+      allow update: if isSignedIn() &&
+        isValidId(userId) &&
+        isValidUserAccount(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          (
+            isAdmin() &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'role', 'displayName', 'blocked', 'blockReason', 'blockedBy', 'blockedAt', 'updatedAt'
+            ])
+          ) ||
+          (
+            isOwner(userId) &&
+            incoming().role == existing().role &&
+            incoming().blocked == existing().blocked &&
+            incoming().blockReason == existing().blockReason &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'email', 'displayName', 'lastDeviceId', 'lastDeviceCode',
+              'deviceModel', 'androidVersion', 'appVersion', 'lastSeenAt', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    // Hardware device block registry managed by future Admin Panel
+    match /blockedDevices/{deviceId} {
+      allow get: if isSignedIn() && isValidId(deviceId);
+      allow list: if isAdmin();
+
+      allow create: if isAdmin() &&
+        isValidId(deviceId) &&
+        incoming().keys().hasAll(['deviceId', 'blocked', 'reason', 'createdAt', 'updatedAt']) &&
+        incoming().keys().hasOnly(['deviceId', 'blocked', 'reason', 'blockedBy', 'createdAt', 'updatedAt']) &&
+        isValidBlockedDevice(incoming(), deviceId);
+
+      allow update: if isAdmin() &&
+        isValidId(deviceId) &&
+        isValidBlockedDevice(incoming(), deviceId) &&
+        incoming().deviceId == existing().deviceId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['blocked', 'reason', 'blockedBy', 'updatedAt']);
+
+      allow delete: if isAdmin() && isValidId(deviceId);
+    }
+
+    // Global Admin Panel configuration & notices
+    match /appConfig/{configId} {
+      allow get: if isSignedIn() && isValidId(configId);
+      allow list: if isAdmin();
+
+      allow create: if isAdmin() &&
+        isValidId(configId) &&
+        incoming().keys().hasAll(['maintenanceMode', 'maintenanceNotice', 'minVersionCode', 'globalNotice', 'updatedAt']) &&
+        incoming().keys().hasOnly(['maintenanceMode', 'maintenanceNotice', 'minVersionCode', 'globalNotice', 'updatedAt']) &&
+        isValidAppConfig(incoming());
+
+      allow update: if isAdmin() &&
+        isValidId(configId) &&
+        isValidAppConfig(incoming()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'maintenanceMode', 'maintenanceNotice', 'minVersionCode', 'globalNotice', 'updatedAt'
+        ]);
+
+      allow delete: if isAdmin() && isValidId(configId);
+    }
+
+    // One-Google-account-per-device binding (non-listable, permanent code)
+    match /deviceBindings/{deviceId} {
+      allow list: if isAdmin();
+      allow get: if isSignedIn() && isValidId(deviceId);
+
+      allow create: if isSignedIn() &&
+        isValidId(deviceId) &&
+        incoming().keys().hasAll(['ownerUid', 'ownerEmailMasked', 'deviceCode', 'createdAt', 'updatedAt']) &&
+        incoming().keys().hasOnly(['ownerUid', 'ownerEmailMasked', 'deviceCode', 'createdAt', 'updatedAt']) &&
+        incoming().ownerUid == request.auth.uid &&
+        isValidDeviceBinding(incoming());
+
+      allow update: if isSignedIn() &&
+        isValidId(deviceId) &&
+        existing().ownerUid == request.auth.uid &&
+        isValidDeviceBinding(incoming()) &&
+        incoming().ownerUid == existing().ownerUid &&
+        incoming().deviceCode == existing().deviceCode &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['ownerEmailMasked', 'updatedAt']);
+
+      allow delete: if isAdmin() && isValidId(deviceId);
+    }
+
+    // Direct 9-digit permanent code lookup (admin listable, user get-only)
+    match /deviceCodes/{code} {
+      allow list: if isAdmin();
+      allow get: if isSignedIn() && isValidCode(code);
+
+      allow create: if isSignedIn() &&
+        isValidCode(code) &&
+        incoming().keys().hasAll(['ownerUid', 'deviceId', 'model', 'androidVersion', 'online', 'createdAt', 'updatedAt']) &&
+        incoming().keys().hasOnly(['ownerUid', 'deviceId', 'model', 'androidVersion', 'online', 'createdAt', 'updatedAt']) &&
+        incoming().ownerUid == request.auth.uid &&
+        isValidDeviceCodeLookup(incoming());
+
+      allow update: if isSignedIn() &&
+        isValidCode(code) &&
+        existing().ownerUid == request.auth.uid &&
+        isValidDeviceCodeLookup(incoming()) &&
+        incoming().ownerUid == existing().ownerUid &&
+        incoming().deviceId == existing().deviceId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['model', 'androidVersion', 'online', 'updatedAt']);
+
+      allow delete: if (isAdmin() || (isSignedIn() && existing().ownerUid == request.auth.uid)) && isValidCode(code);
+    }
+
+    // Global cloud devices
+    match /devices/{deviceId} {
+      allow list: if isAdmin() || (isSignedIn() && resource.data.ownerUid == request.auth.uid);
+      allow get: if isSignedIn() && isValidId(deviceId);
+
+      allow create: if isSignedIn() &&
+        isValidId(deviceId) &&
+        incoming().ownerUid == request.auth.uid &&
+        incoming().keys().hasAll([
+          'ownerUid', 'deviceCode', 'model', 'androidVersion', 'sdk', 'online',
+          'cloudEnabled', 'videoStreaming', 'screenWidth', 'screenHeight',
+          'batteryLevel', 'charging', 'captureMode', 'viewerActive',
+          'viewerQuality', 'createdAt', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'ownerUid', 'deviceCode', 'model', 'deviceAlias', 'androidVersion', 'sdk',
+          'online', 'cloudEnabled', 'videoStreaming', 'screenWidth', 'screenHeight',
+          'batteryLevel', 'batteryTempTenths', 'charging', 'ramUsedMb', 'ramTotalMb',
+          'storageUsedMb', 'storageTotalMb', 'brightness', 'torchOn', 'ringing',
+          'clipboardText', 'captureMode', 'viewerActive', 'viewerQuality',
+          'virtualScreenActive', 'virtualScreenPackage', 'virtualScreenStatus',
+          'activeViewerUid', 'lastSessionCode',
+          'foregroundPackage', 'foregroundLabel', 'foregroundChangedAtMs',
+          'createdAt', 'updatedAt'
+        ]) &&
+        isValidDeviceNode(incoming());
+
+      allow update: if isSignedIn() &&
+        isValidId(deviceId) &&
+        isValidDeviceNode(incoming()) &&
+        incoming().ownerUid == existing().ownerUid &&
+        incoming().deviceCode == existing().deviceCode &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          (
+            existing().ownerUid == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'model', 'deviceAlias', 'androidVersion', 'sdk', 'online', 'cloudEnabled',
+              'videoStreaming', 'screenWidth', 'screenHeight', 'batteryLevel',
+              'batteryTempTenths', 'charging', 'ramUsedMb', 'ramTotalMb',
+              'storageUsedMb', 'storageTotalMb', 'brightness', 'torchOn', 'ringing',
+              'clipboardText', 'captureMode', 'viewerActive', 'viewerQuality',
+              'virtualScreenActive', 'virtualScreenPackage', 'virtualScreenStatus',
+              'activeViewerUid', 'foregroundPackage', 'foregroundLabel', 'foregroundChangedAtMs',
+              'updatedAt'
+            ])
+          ) ||
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'viewerActive', 'viewerQuality', 'activeViewerUid', 'lastSessionCode', 'updatedAt'
+            ]) &&
+            incoming().lastSessionCode == existing().deviceCode &&
+            (incoming().activeViewerUid == null || incoming().activeViewerUid == request.auth.uid)
+          ) ||
+          (
+            isAdmin() &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'deviceAlias', 'online', 'cloudEnabled', 'viewerActive', 'viewerQuality',
+              'activeViewerUid', 'lastSessionCode', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isAdmin() && isValidId(deviceId);
+
+      match /frames/{frameId} {
+        allow list: if false;
+        allow get: if isSignedIn() &&
+          isValidId(deviceId) &&
+          isValidId(frameId) &&
+          (isDeviceOwner(deviceId) || isActiveViewer(deviceId) || isAdmin());
+
+        allow create: if isDeviceOwner(deviceId) &&
+          isValidId(deviceId) &&
+          isValidId(frameId) &&
+          incoming().ownerUid == request.auth.uid &&
+          incoming().keys().hasAll([
+            'ownerUid', 'seq', 'width', 'height', 'isFullShot', 'imageBase64', 'updatedAt'
+          ]) &&
+          incoming().keys().hasOnly([
+            'ownerUid', 'seq', 'width', 'height', 'isFullShot', 'imageBase64', 'updatedAt'
+          ]) &&
+          isValidLiveFrame(incoming());
+
+        allow update: if isDeviceOwner(deviceId) &&
+          isValidId(deviceId) &&
+          isValidId(frameId) &&
+          isValidLiveFrame(incoming()) &&
+          incoming().ownerUid == existing().ownerUid &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'seq', 'width', 'height', 'isFullShot', 'imageBase64', 'updatedAt'
+          ]);
+
+        allow delete: if isDeviceOwner(deviceId) && isValidId(deviceId) && isValidId(frameId);
+      }
+
+      match /meta/{metaId} {
+        allow list: if false;
+        allow get: if isSignedIn() &&
+          isValidId(deviceId) &&
+          isValidId(metaId) &&
+          (isDeviceOwner(deviceId) || isActiveViewer(deviceId) || isAdmin());
+
+        allow create, update: if isDeviceOwner(deviceId) &&
+          isValidId(deviceId) &&
+          isValidId(metaId) &&
+          incoming().ownerUid == request.auth.uid &&
+          incoming().updatedAt is timestamp &&
+          incoming().updatedAt <= request.time &&
+          (
+            (
+              metaId == 'installedApps' &&
+              incoming().keys().hasAll(['ownerUid', 'apps', 'updatedAt']) &&
+              incoming().keys().hasOnly(['ownerUid', 'apps', 'updatedAt']) &&
+              incoming().apps is list &&
+              incoming().apps.size() <= 1000
+            ) ||
+            (
+              metaId == 'notifications' &&
+              incoming().keys().hasAll(['ownerUid', 'listenerEnabled', 'notifications', 'updatedAt']) &&
+              incoming().keys().hasOnly(['ownerUid', 'listenerEnabled', 'notifications', 'updatedAt']) &&
+              incoming().listenerEnabled is bool &&
+              incoming().notifications is list &&
+              incoming().notifications.size() <= 100
+            )
+          );
+
+        allow delete: if isDeviceOwner(deviceId) && isValidId(deviceId) && isValidId(metaId);
+      }
+
+      match /commands/{commandId} {
+        allow list: if (isDeviceOwner(deviceId) || isAdmin()) && isValidId(deviceId);
+        allow get: if isSignedIn() &&
+          isValidId(deviceId) &&
+          isValidId(commandId) &&
+          (existing().senderUid == request.auth.uid || isDeviceOwner(deviceId) || isAdmin());
+
+        allow create: if isSignedIn() &&
+          isValidId(deviceId) &&
+          isValidId(commandId) &&
+          incoming().keys().hasAll([
+            'senderUid', 'senderDeviceId', 'pin', 'payload', 'status', 'createdAt', 'updatedAt'
+          ]) &&
+          incoming().keys().hasOnly([
+            'senderUid', 'senderDeviceId', 'pin', 'payload', 'status', 'errorMessage', 'createdAt', 'updatedAt'
+          ]) &&
+          incoming().senderUid == request.auth.uid &&
+          incoming().status == 'pending' &&
+          incoming().pin == deviceDocData(deviceId).deviceCode &&
+          isValidRemoteCommand(incoming());
+
+        allow update: if isDeviceOwner(deviceId) &&
+          isValidId(deviceId) &&
+          isValidId(commandId) &&
+          isValidRemoteCommand(incoming()) &&
+          incoming().senderUid == existing().senderUid &&
+          incoming().senderDeviceId == existing().senderDeviceId &&
+          incoming().pin == existing().pin &&
+          incoming().payload == existing().payload &&
+          incoming().createdAt == existing().createdAt &&
+          existing().status == 'pending' &&
+          incoming().status in ['done', 'error'] &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'errorMessage', 'updatedAt']);
+
+        allow delete: if (isDeviceOwner(deviceId) || isAdmin()) && isValidId(deviceId) && isValidId(commandId);
+      }
+    }
+
+    // Personal quick-reconnect history with custom alias & favorite pin
+    match /users/{userId}/savedDevices/{deviceId} {
+      allow list: if isOwner(userId) || isAdmin();
+      allow get: if (isOwner(userId) || isAdmin()) && isValidId(deviceId);
+      allow delete: if (isOwner(userId) || isAdmin()) && isValidId(deviceId);
+
+      allow create: if isOwner(userId) &&
+        isValidId(deviceId) &&
+        incoming().keys().hasAll(['userId', 'targetDeviceId', 'deviceCode', 'model', 'androidVersion', 'createdAt', 'updatedAt']) &&
+        incoming().keys().hasOnly(['userId', 'targetDeviceId', 'deviceCode', 'model', 'androidVersion', 'alias', 'pinned', 'createdAt', 'updatedAt']) &&
+        isValidSavedDevice(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+        isValidId(deviceId) &&
+        isValidSavedDevice(incoming(), userId) &&
+        incoming().userId == existing().userId &&
+        incoming().targetDeviceId == existing().targetDeviceId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['deviceCode', 'model', 'androidVersion', 'alias', 'pinned', 'updatedAt']);
+    }
+
+    // Messenger-style Chat Threads, Photo/Text Messages & Audio/Video Calls
+    match /chats/{chatId} {
+      allow list: if isAdmin() || (isSignedIn() && request.auth.uid in resource.data.participantUids);
+      allow get: if isAdmin() || (isSignedIn() && isValidId(chatId) && (resource == null || request.auth.uid in resource.data.participantUids));
+
+      allow create: if isSignedIn() &&
+        isValidId(chatId) &&
+        incoming().keys().hasAll([
+          'participantUids', 'targetDeviceId', 'authCode', 'initiatedByUid',
+          'userAUid', 'userADeviceId', 'userADeviceName',
+          'userBUid', 'userBDeviceId', 'userBDeviceName',
+          'lastMessageText', 'lastMessageType', 'lastSenderUid', 'lastSenderDeviceName',
+          'createdAt', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'participantUids', 'targetDeviceId', 'authCode', 'initiatedByUid',
+          'userAUid', 'userADeviceId', 'userADeviceName',
+          'userBUid', 'userBDeviceId', 'userBDeviceName',
+          'lastMessageText', 'lastMessageType', 'lastSenderUid', 'lastSenderDeviceName',
+          'activeCallId', 'activeCallType', 'activeCallStatus', 'activeCallerUid', 'activeCallerName',
+          'createdAt', 'updatedAt'
+        ]) &&
+        incoming().initiatedByUid == request.auth.uid &&
+        request.auth.uid in incoming().participantUids &&
+        deviceDocData(incoming().targetDeviceId).ownerUid in incoming().participantUids &&
+        incoming().authCode == deviceDocData(incoming().targetDeviceId).deviceCode &&
+        isValidChatThread(incoming());
+
+      allow update: if isSignedIn() &&
+        isValidId(chatId) &&
+        request.auth.uid in existing().participantUids &&
+        isValidChatThread(incoming()) &&
+        incoming().participantUids == existing().participantUids &&
+        incoming().targetDeviceId == existing().targetDeviceId &&
+        incoming().authCode == existing().authCode &&
+        incoming().initiatedByUid == existing().initiatedByUid &&
+        incoming().userAUid == existing().userAUid &&
+        incoming().userADeviceId == existing().userADeviceId &&
+        incoming().userBUid == existing().userBUid &&
+        incoming().userBDeviceId == existing().userBDeviceId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'userADeviceName', 'userBDeviceName',
+          'lastMessageText', 'lastMessageType', 'lastSenderUid', 'lastSenderDeviceName',
+          'activeCallId', 'activeCallType', 'activeCallStatus', 'activeCallerUid', 'activeCallerName',
+          'updatedAt'
+        ]);
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow list: if isValidId(chatId) && isChatParticipant(chatId);
+        allow get: if isValidId(chatId) && isValidId(messageId) && isChatParticipant(chatId);
+
+        allow create: if isValidId(chatId) &&
+          isValidId(messageId) &&
+          isChatParticipant(chatId) &&
+          incoming().keys().hasAll([
+            'chatId', 'senderUid', 'senderDeviceId', 'senderDeviceName', 'type', 'text', 'createdAt'
+          ]) &&
+          incoming().keys().hasOnly([
+            'chatId', 'senderUid', 'senderDeviceId', 'senderDeviceName', 'type', 'text', 'imageBase64', 'createdAt'
+          ]) &&
+          incoming().senderUid == request.auth.uid &&
+          isValidChatMessage(incoming(), chatId);
+
+        allow update, delete: if false;
+      }
+
+      match /calls/{callId} {
+        allow list: if isValidId(chatId) && isChatParticipant(chatId);
+        allow get: if isValidId(chatId) && isValidId(callId) && isChatParticipant(chatId);
+
+        allow create: if isValidId(chatId) &&
+          isValidId(callId) &&
+          isChatParticipant(chatId) &&
+          incoming().keys().hasAll([
+            'chatId', 'callerUid', 'callerDeviceId', 'callerName', 'calleeUid',
+            'callType', 'status', 'createdAt', 'updatedAt'
+          ]) &&
+          incoming().keys().hasOnly([
+            'chatId', 'callerUid', 'callerDeviceId', 'callerName', 'calleeUid',
+            'callType', 'status', 'createdAt', 'updatedAt'
+          ]) &&
+          incoming().callerUid == request.auth.uid &&
+          incoming().status == 'ringing' &&
+          isValidCallSession(incoming(), chatId);
+
+        allow update: if isValidId(chatId) &&
+          isValidId(callId) &&
+          isChatParticipant(chatId) &&
+          isValidCallSession(incoming(), chatId) &&
+          incoming().chatId == existing().chatId &&
+          incoming().callerUid == existing().callerUid &&
+          incoming().callerDeviceId == existing().callerDeviceId &&
+          incoming().callerName == existing().callerName &&
+          incoming().calleeUid == existing().calleeUid &&
+          incoming().callType == existing().callType &&
+          incoming().createdAt == existing().createdAt &&
+          existing().status in ['ringing', 'active'] &&
+          incoming().status in ['active', 'ended', 'declined'] &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+
+        allow delete: if false;
+
+        match /streams/{participantUid} {
+          allow list: if false;
+          allow get: if isValidId(chatId) && isValidId(callId) && isValidId(participantUid) && isChatParticipant(chatId);
+
+          allow create, update: if isValidId(chatId) &&
+            isValidId(callId) &&
+            isValidId(participantUid) &&
+            isChatParticipant(chatId) &&
+            participantUid == request.auth.uid &&
+            incoming().keys().hasAll([
+              'senderUid', 'seq', 'audioBase64', 'videoBase64', 'muted', 'cameraOn', 'updatedAt'
+            ]) &&
+            incoming().keys().hasOnly([
+              'senderUid', 'seq', 'audioBase64', 'videoBase64', 'muted', 'cameraOn', 'updatedAt'
+            ]) &&
+            isValidCallStream(incoming(), participantUid);
+
+          allow delete: if false;
+        }
+      }
+    }
+  }
+}

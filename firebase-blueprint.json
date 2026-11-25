@@ -1,0 +1,415 @@
+{
+  "entities": {
+    "DeviceBinding": {
+      "title": "DeviceBinding",
+      "description": "Enforces one-Google-account-per-device binding and persists the permanent device code across reinstalls.",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string", "description": "Bound Firebase Auth UID" },
+        "ownerEmailMasked": { "type": "string", "description": "Masked Google email for account-switch hint" },
+        "deviceCode": { "type": "string", "description": "Permanent 9-digit numeric device connection code" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp" }
+      },
+      "required": ["ownerUid", "ownerEmailMasked", "deviceCode", "createdAt", "updatedAt"]
+    },
+    "DeviceCodeLookup": {
+      "title": "DeviceCodeLookup",
+      "description": "Direct code-to-device lookup document keyed by the permanent 9-digit deviceCode.",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string", "description": "Owner Firebase Auth UID" },
+        "deviceId": { "type": "string", "description": "Target device ID" },
+        "model": { "type": "string", "description": "Device manufacturer and model" },
+        "androidVersion": { "type": "string", "description": "Android OS release version" },
+        "online": { "type": "boolean", "description": "Whether the host device is online" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp" }
+      },
+      "required": ["ownerUid", "deviceId", "model", "androidVersion", "online", "createdAt", "updatedAt"]
+    },
+    "DeviceNode": {
+      "title": "DeviceNode",
+      "description": "A registered Android device available for global cloud remote control, screen sharing, hardware utilities, and telemetry.",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string", "description": "Owner Firebase Auth UID" },
+        "deviceCode": { "type": "string", "description": "Permanent 9-digit numeric access code" },
+        "model": { "type": "string", "description": "Device manufacturer and model" },
+        "deviceAlias": { "type": "string", "description": "Optional user-defined device nickname" },
+        "androidVersion": { "type": "string", "description": "Android OS release version" },
+        "sdk": { "type": "integer", "description": "Android SDK API level" },
+        "online": { "type": "boolean", "description": "Whether the remote service is online" },
+        "cloudEnabled": { "type": "boolean", "description": "Whether cloud remote access is enabled" },
+        "videoStreaming": { "type": "boolean", "description": "Whether MediaProjection screen capture is active" },
+        "screenWidth": { "type": "integer", "description": "Physical screen width in pixels" },
+        "screenHeight": { "type": "integer", "description": "Physical screen height in pixels" },
+        "batteryLevel": { "type": "integer", "description": "Battery percentage 0..100" },
+        "batteryTempTenths": { "type": "integer", "description": "Battery temperature in tenths of °C" },
+        "charging": { "type": "boolean", "description": "Whether device is plugged in" },
+        "ramUsedMb": { "type": "integer", "description": "Used RAM in MB" },
+        "ramTotalMb": { "type": "integer", "description": "Total RAM in MB" },
+        "storageUsedMb": { "type": "integer", "description": "Used internal storage in MB" },
+        "storageTotalMb": { "type": "integer", "description": "Total internal storage in MB" },
+        "brightness": { "type": "integer", "description": "Current system screen brightness 0..255" },
+        "torchOn": { "type": "boolean", "description": "Whether camera flashlight is on" },
+        "ringing": { "type": "boolean", "description": "Whether find-device ring alert is playing" },
+        "clipboardText": { "type": "string", "description": "Latest clipboard snippet pulled from the device" },
+        "captureMode": { "type": "string", "description": "Current capture mode description" },
+        "viewerActive": { "type": "boolean", "description": "Whether a remote viewer is actively watching" },
+        "viewerQuality": { "type": "integer", "description": "Requested remote frame width in pixels" },
+        "virtualScreenActive": { "type": "boolean", "description": "Whether the independent virtual screen display is active" },
+        "virtualScreenPackage": { "type": "string", "description": "Currently open package on the virtual screen" },
+        "virtualScreenStatus": { "type": "string", "description": "Human-readable virtual screen runtime status" },
+        "activeViewerUid": { "type": "string", "description": "UID of the currently authorized remote viewer" },
+        "lastSessionCode": { "type": "string", "description": "Verification code provided by the active remote viewer" },
+        "foregroundPackage": { "type": "string", "description": "Current foreground app package on target device" },
+        "foregroundLabel": { "type": "string", "description": "Human-readable foreground app label on target device" },
+        "foregroundChangedAtMs": { "type": "integer", "description": "Epoch millis when foreground app changed" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp" }
+      },
+      "required": [
+        "ownerUid",
+        "deviceCode",
+        "model",
+        "androidVersion",
+        "sdk",
+        "online",
+        "cloudEnabled",
+        "videoStreaming",
+        "screenWidth",
+        "screenHeight",
+        "batteryLevel",
+        "charging",
+        "captureMode",
+        "viewerActive",
+        "viewerQuality",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "LiveFrame": {
+      "title": "LiveFrame",
+      "description": "Latest compressed screen frame published by the host device while a viewer is active.",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string", "description": "Owner Firebase Auth UID" },
+        "seq": { "type": "integer", "description": "Monotonic frame sequence number" },
+        "width": { "type": "integer", "description": "Frame width in pixels" },
+        "height": { "type": "integer", "description": "Frame height in pixels" },
+        "isFullShot": { "type": "boolean", "description": "True if this frame was captured as a full screenshot" },
+        "imageBase64": { "type": "string", "description": "Base64-encoded compressed JPEG frame" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server frame timestamp" }
+      },
+      "required": ["ownerUid", "seq", "width", "height", "isFullShot", "imageBase64", "updatedAt"]
+    },
+    "RemoteCommand": {
+      "title": "RemoteCommand",
+      "description": "Remote input, hardware utility, or system action command sent from a controller to a host device.",
+      "type": "object",
+      "properties": {
+        "senderUid": { "type": "string", "description": "Authenticated controller Firebase Auth UID" },
+        "senderDeviceId": { "type": "string", "description": "Originating controller device ID" },
+        "pin": { "type": "string", "description": "9-digit permanent device code verified by rules and host" },
+        "payload": { "type": "string", "description": "Remote command payload" },
+        "status": { "type": "string", "enum": ["pending", "done", "error"], "description": "Command execution status" },
+        "errorMessage": { "type": "string", "description": "Optional error details if execution failed" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp" }
+      },
+      "required": ["senderUid", "senderDeviceId", "pin", "payload", "status", "createdAt", "updatedAt"]
+    },
+    "SavedDevice": {
+      "title": "SavedDevice",
+      "description": "Saved remote devices with optional custom alias and favorite pin.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Controller Firebase Auth UID" },
+        "targetDeviceId": { "type": "string", "description": "Remote device ID" },
+        "deviceCode": { "type": "string", "description": "9-digit remote device code" },
+        "model": { "type": "string", "description": "Remote device model" },
+        "androidVersion": { "type": "string", "description": "Remote Android version" },
+        "alias": { "type": "string", "description": "Custom nickname assigned by controller" },
+        "pinned": { "type": "boolean", "description": "Whether this device is pinned to favorites" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp" }
+      },
+      "required": ["userId", "targetDeviceId", "deviceCode", "model", "androidVersion", "createdAt", "updatedAt"]
+    },
+    "ChatThread": {
+      "title": "ChatThread",
+      "description": "Messenger conversation between controller and remote device with active call signaling metadata.",
+      "type": "object",
+      "properties": {
+        "participantUids": { "type": "array", "items": { "type": "string" }, "description": "UIDs participating in the chat" },
+        "targetDeviceId": { "type": "string", "description": "Remote device ID authorized with authCode" },
+        "authCode": { "type": "string", "description": "9-digit device code authorizing thread creation" },
+        "initiatedByUid": { "type": "string", "description": "UID that initiated the thread" },
+        "userAUid": { "type": "string", "description": "Initiating user UID" },
+        "userADeviceId": { "type": "string", "description": "Initiating device ID" },
+        "userADeviceName": { "type": "string", "description": "Initiating device display name" },
+        "userBUid": { "type": "string", "description": "Target device owner UID" },
+        "userBDeviceId": { "type": "string", "description": "Target device ID" },
+        "userBDeviceName": { "type": "string", "description": "Target device display name" },
+        "lastMessageText": { "type": "string", "description": "Preview of last message" },
+        "lastMessageType": { "type": "string", "enum": ["text", "photo", "call_audio", "call_video"], "description": "Type of last activity" },
+        "lastSenderUid": { "type": "string", "description": "Sender UID of last message" },
+        "lastSenderDeviceName": { "type": "string", "description": "Device name of last sender" },
+        "activeCallId": { "type": "string", "description": "Current ringing/active call ID if any" },
+        "activeCallType": { "type": "string", "enum": ["audio", "video"], "description": "Current call mode" },
+        "activeCallStatus": { "type": "string", "enum": ["ringing", "active", "ended", "declined"], "description": "Current call status" },
+        "activeCallerUid": { "type": "string", "description": "Caller UID" },
+        "activeCallerName": { "type": "string", "description": "Caller device display name" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Thread creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last activity timestamp" }
+      },
+      "required": [
+        "participantUids", "targetDeviceId", "authCode", "initiatedByUid",
+        "userAUid", "userADeviceId", "userADeviceName",
+        "userBUid", "userBDeviceId", "userBDeviceName",
+        "lastMessageText", "lastMessageType", "lastSenderUid", "lastSenderDeviceName",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A text, photo, or call event message inside a ChatThread.",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string", "description": "Parent chat ID" },
+        "senderUid": { "type": "string", "description": "Sender Auth UID" },
+        "senderDeviceId": { "type": "string", "description": "Sender device ID" },
+        "senderDeviceName": { "type": "string", "description": "Sender device name or alias" },
+        "type": { "type": "string", "enum": ["text", "photo", "call"], "description": "Message payload type" },
+        "text": { "type": "string", "description": "Message text or caption" },
+        "imageBase64": { "type": "string", "description": "Optional compressed JPEG photo payload" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Message creation timestamp" }
+      },
+      "required": ["chatId", "senderUid", "senderDeviceId", "senderDeviceName", "type", "text", "createdAt"]
+    },
+    "CallSession": {
+      "title": "CallSession",
+      "description": "Audio or Video call session signaling document.",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string", "description": "Parent chat ID" },
+        "callerUid": { "type": "string", "description": "Caller Auth UID" },
+        "callerDeviceId": { "type": "string", "description": "Caller device ID" },
+        "callerName": { "type": "string", "description": "Caller device name" },
+        "calleeUid": { "type": "string", "description": "Callee Auth UID" },
+        "callType": { "type": "string", "enum": ["audio", "video"], "description": "Call type" },
+        "status": { "type": "string", "enum": ["ringing", "active", "ended", "declined"], "description": "Call lifecycle state" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Call start timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Call update timestamp" }
+      },
+      "required": ["chatId", "callerUid", "callerDeviceId", "callerName", "calleeUid", "callType", "status", "createdAt", "updatedAt"]
+    },
+    "CallMediaStream": {
+      "title": "CallMediaStream",
+      "description": "Per-participant real-time audio and video frame relay packet for active calls.",
+      "type": "object",
+      "properties": {
+        "senderUid": { "type": "string", "description": "Participant Auth UID" },
+        "seq": { "type": "integer", "description": "Monotonic media packet sequence" },
+        "audioBase64": { "type": "string", "description": "Base64 PCM 8kHz mono audio chunk" },
+        "videoBase64": { "type": "string", "description": "Base64 JPEG camera frame" },
+        "muted": { "type": "boolean", "description": "Whether participant microphone is muted" },
+        "cameraOn": { "type": "boolean", "description": "Whether participant camera is active" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Packet timestamp" }
+      },
+      "required": ["senderUid", "seq", "audioBase64", "videoBase64", "muted", "cameraOn", "updatedAt"]
+    },
+    "InstalledAppsNode": {
+      "title": "InstalledAppsNode",
+      "description": "Catalog of launchable installed apps published by the host device for remote app launching.",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string", "description": "Host device owner Auth UID" },
+        "apps": {
+          "type": "array",
+          "description": "List of launchable app entries",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string" },
+              "packageName": { "type": "string" },
+              "systemApp": { "type": "boolean" }
+            }
+          }
+        },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last refresh timestamp" }
+      },
+      "required": ["ownerUid", "apps", "updatedAt"]
+    },
+    "RemoteNotificationsNode": {
+      "title": "RemoteNotificationsNode",
+      "description": "Snapshot of active notifications published by the host device for an authorized controller.",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string", "description": "Host device owner Auth UID" },
+        "listenerEnabled": { "type": "boolean", "description": "Whether NotificationListenerService is enabled on host" },
+        "notifications": {
+          "type": "array",
+          "description": "Recent active status bar notifications",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "type": "string" },
+              "packageName": { "type": "string" },
+              "appLabel": { "type": "string" },
+              "title": { "type": "string" },
+              "text": { "type": "string" },
+              "postedAtMs": { "type": "integer" },
+              "ongoing": { "type": "boolean" }
+            }
+          }
+        },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last sync timestamp" }
+      },
+      "required": ["ownerUid", "listenerEnabled", "notifications", "updatedAt"]
+    },
+    "UserAccountRecord": {
+      "title": "UserAccountRecord",
+      "description": "Authenticated user directory record and Admin-controlled block status & notice message.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "description": "Signed-in Google email address" },
+        "displayName": { "type": "string", "description": "User or device display label" },
+        "lastDeviceId": { "type": "string", "description": "Most recent device ID used" },
+        "lastDeviceCode": { "type": "string", "description": "Most recent 9-digit permanent device code" },
+        "deviceModel": { "type": "string", "description": "Phone manufacturer and model" },
+        "androidVersion": { "type": "string", "description": "Android OS version" },
+        "appVersion": { "type": "string", "description": "Installed app version name" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "Account role (always 'user' on client create)" },
+        "blocked": { "type": "boolean", "description": "Whether Admin Panel blocked this user" },
+        "blockReason": { "type": "string", "description": "Custom Admin notice shown on blocked screen" },
+        "blockedBy": { "type": "string", "description": "Admin UID that applied the block" },
+        "blockedAt": { "type": "string", "format": "date-time", "description": "Timestamp when user was blocked" },
+        "lastSeenAt": { "type": "string", "format": "date-time", "description": "Last active heartbeat timestamp" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp" }
+      },
+      "required": ["uid", "email", "lastDeviceId", "lastDeviceCode", "role", "blocked", "blockReason", "lastSeenAt", "createdAt", "updatedAt"]
+    },
+    "BlockedDeviceRecord": {
+      "title": "BlockedDeviceRecord",
+      "description": "Hardware device block entry managed by the Admin Panel.",
+      "type": "object",
+      "properties": {
+        "deviceId": { "type": "string", "description": "Blocked hardware deviceId" },
+        "blocked": { "type": "boolean", "description": "Whether device access is disabled" },
+        "reason": { "type": "string", "description": "Notice displayed to the user on the blocked device" },
+        "blockedBy": { "type": "string", "description": "Admin UID" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Block creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Block update timestamp" }
+      },
+      "required": ["deviceId", "blocked", "reason", "createdAt", "updatedAt"]
+    },
+    "AdminGlobalConfig": {
+      "title": "AdminGlobalConfig",
+      "description": "Global control flags and broadcast notices managed by the Admin Panel.",
+      "type": "object",
+      "properties": {
+        "maintenanceMode": { "type": "boolean", "description": "Global app maintenance pause switch" },
+        "maintenanceNotice": { "type": "string", "description": "Notice shown during maintenance" },
+        "minVersionCode": { "type": "integer", "description": "Minimum allowed app versionCode" },
+        "globalNotice": { "type": "string", "description": "Optional admin banner displayed on homepage" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["maintenanceMode", "maintenanceNotice", "minVersionCode", "globalNotice", "updatedAt"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Trusted administrator marker keyed by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Admin Firebase Auth UID" },
+        "role": { "type": "string", "description": "Admin role label" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["uid", "role", "createdAt"]
+    },
+    "AdminAuditLog": {
+      "title": "AdminAuditLog",
+      "description": "Immutable security audit entry recorded when an administrator performs an action.",
+      "type": "object",
+      "properties": {
+        "adminUid": { "type": "string", "description": "Acting administrator Auth UID" },
+        "adminEmail": { "type": "string", "description": "Acting administrator email" },
+        "action": { "type": "string", "description": "Short action code (BLOCK_USER, UNBLOCK_USER, etc.)" },
+        "target": { "type": "string", "description": "Target user/device identifier" },
+        "details": { "type": "string", "description": "Human-readable details" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": ["adminUid", "adminEmail", "action", "target", "details", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Trusted Admin Panel operator marker documents."
+    },
+    "/adminLogs/{logId}": {
+      "schema": { "$ref": "#/entities/AdminAuditLog" },
+      "description": "Security audit trail readable and writable exclusively by authorized admins."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserAccountRecord" },
+      "description": "User directory & Admin-enforced account block state."
+    },
+    "/blockedDevices/{deviceId}": {
+      "schema": { "$ref": "#/entities/BlockedDeviceRecord" },
+      "description": "Hardware device block records enforced in real time."
+    },
+    "/appConfig/{configId}": {
+      "schema": { "$ref": "#/entities/AdminGlobalConfig" },
+      "description": "Global Admin Panel switches and broadcast notices."
+    },
+    "/deviceBindings/{deviceId}": {
+      "schema": { "$ref": "#/entities/DeviceBinding" },
+      "description": "Enforces one Google account per device and preserves permanent device code."
+    },
+    "/deviceCodes/{code}": {
+      "schema": { "$ref": "#/entities/DeviceCodeLookup" },
+      "description": "Direct code lookup table (get-only, non-listable)."
+    },
+    "/devices/{deviceId}": {
+      "schema": { "$ref": "#/entities/DeviceNode" },
+      "description": "Global cloud device nodes keyed by deviceId."
+    },
+    "/devices/{deviceId}/frames/{frameId}": {
+      "schema": { "$ref": "#/entities/LiveFrame" },
+      "description": "Latest live screen frame slot readable by owner or active authorized viewer."
+    },
+    "/devices/{deviceId}/meta/{metaId}": {
+      "schema": { "$ref": "#/entities/InstalledAppsNode" },
+      "description": "Installed launchable apps metadata readable by owner or active authorized viewer."
+    },
+    "/devices/{deviceId}/commands/{commandId}": {
+      "schema": { "$ref": "#/entities/RemoteCommand" },
+      "description": "Remote commands authorized by matching permanent device code."
+    },
+    "/users/{userId}/savedDevices/{deviceId}": {
+      "schema": { "$ref": "#/entities/SavedDevice" },
+      "description": "User's quick-reconnect remote device history with aliases and favorites."
+    },
+    "/chats/{chatId}": {
+      "schema": { "$ref": "#/entities/ChatThread" },
+      "description": "Participant-scoped Messenger chat thread and incoming call state."
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Immutable chat messages (text, photo, call logs)."
+    },
+    "/chats/{chatId}/calls/{callId}": {
+      "schema": { "$ref": "#/entities/CallSession" },
+      "description": "Audio/Video call signaling state."
+    },
+    "/chats/{chatId}/calls/{callId}/streams/{participantUid}": {
+      "schema": { "$ref": "#/entities/CallMediaStream" },
+      "description": "Participant live audio & camera video stream packets."
+    }
+  }
+}
